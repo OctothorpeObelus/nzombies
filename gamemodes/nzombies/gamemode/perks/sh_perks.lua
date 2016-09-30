@@ -117,9 +117,9 @@ nzPerks:NewPerk("revive", {
 	icon = Material("perk_icons/revive.png", "smooth unlitgeneric"),
 	func = function(self, ply, machine)
 			if #player.GetAllPlaying() <= 1 then
-				if !ply.SoloRevive or ply.SoloRevive < 3 then
+				if !ply.SoloRevive or ply.SoloRevive < 3 or !IsValid(machine) then
 					ply:ChatPrint("You got Quick Revive (Solo)!")
-				else 
+				else
 					ply:ChatPrint("You can only get Quick Revive Solo 3 times.")
 					return false
 				end
@@ -181,7 +181,11 @@ nzPerks:NewPerk("pap", {
 	func = function(self, ply, machine)
 		local wep = ply:GetActiveWeapon()
 		if (!wep.pap or wep.OnRePaP or (wep:IsCW2() and CustomizableWeaponry)) and !machine:GetBeingUsed() then
-			local reroll = (wep.pap and wep.OnRePaP or wep.Attachments and ((wep:IsCW2() and CustomizableWeaponry) or wep:IsFAS2()) and true or false)
+			--local reroll = (wep.pap and wep.OnRePaP or wep.Attachments and ((wep:IsCW2() and CustomizableWeaponry) or wep:IsFAS2()) and true or false)
+			local reroll = false
+			if wep.pap and (wep.OnRePaP or (wep.Attachments and (wep:IsCW2() and CustomizableWeaponry) or wep:IsFAS2())) then
+				reroll = true
+			end
 			local cost = reroll and 2000 or 5000
 
 			if !ply:CanAfford(cost) then return end

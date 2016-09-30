@@ -81,6 +81,7 @@ ENT.ActStages = {
 function ENT:SetupDataTables()
 	-- If you want decapitation in you zombie and overwrote ENT:SetupDataTables() make sure to add self:NetworkVar("Bool", 0, "Decapitated") again.
 	self:NetworkVar("Bool", 0, "Decapitated")
+	if self.InitDataTables then self:InitDataTables() end
 end
 
 function ENT:Precache()
@@ -182,6 +183,8 @@ function ENT:Initialize()
 		self:SetBodygroup( i-1, math.random(0, self:GetBodygroupCount(i-1) - 1))
 	end
 	self:SetSkin( math.random(self:SkinCount()) - 1 )
+	
+	self.ZombieAlive = true
 
 end
 
@@ -440,9 +443,10 @@ function ENT:OnBarricadeBlocking( barricade )
 			self:SetAngles(Angle(0,(barricade:GetPos()-self:GetPos()):Angle()[2],0))
 			local seq = self.AttackSequences[math.random( #self.AttackSequences )].seq
 			local dur = self:SequenceDuration(self:LookupSequence(seq))
+			self:SetAttacking(true)
 			self:PlaySequenceAndWait(seq, 1)
 			self:SetLastAttack(CurTime())
-			self:SetAttacking(true)
+			self:SetAttacking(false)
 			self:UpdateSequence()
 			if coroutine.running() then
 				coroutine.wait(2 - dur)
@@ -466,6 +470,8 @@ function ENT:OnBarricadeBlocking( barricade )
 				self.BarricadeJumpTries = self.BarricadeJumpTries + 1
 				-- Otherwise they'd get continuously stuck on slightly bigger props :(
 			end
+		else
+			self:SetAttacking(false)
 		end
 	end
 end
@@ -587,20 +593,30 @@ function ENT:OnZombieDeath()
 	self:BecomeRagdoll(dmgInfo)
 end
 
+function ENT:Alive()
+	return self.ZombieAlive
+end
+
 function ENT:OnKilled(dmgInfo)
 
 	if dmgInfo then
 		self:OnZombieDeath(dmgInfo)
 	end
 
-	local headPos = self:GetBonePosition(self:LookupBone("ValveBiped.Bip01_Head1"))
-	local dmgPos = dmgInfo:GetDamagePosition()
+	local headbone = self:LookupBone("ValveBiped.Bip01_Head1")
+	if !headbone then headbone = self:LookupBone("j_head") end
+	if headbone then
+		local headPos = self:GetBonePosition(headbone)
+		local dmgPos = dmgInfo:GetDamagePosition()
 
-	-- it wil lnot always trigger since the offset can be larger than 12
-	-- but i think its fine not to decapitate every headshotted zombie
-	if headPos and dmgPos and headPos:Distance(dmgPos) < 12 then
-		self:SetDecapitated(true)
+		-- it will not always trigger since the offset can be larger than 12
+		-- but I think it's fine not to decapitate every headshotted zombie
+		if headPos and dmgPos and headPos:Distance(dmgPos) < 12 then
+			self:SetDecapitated(true)
+		end
 	end
+	
+	self.ZombieAlive = false
 
 	hook.Call("OnZombieKilled", GAMEMODE, self, dmgInfo)
 
@@ -770,30 +786,26 @@ function ENT:ChaseTargetPath( options )
 	local goal = navmesh.GetNearestNavArea(targetPos, false, 100)
 	goal = goal and goal:GetClosestPointOnArea(targetPos) or targetPos--]]
 
-	--Custom path computer, the same as default but not pathing through locked nav areas.
+	-- Custom path computer, the same as default but not pathing through locked nav areas.
 	path:Compute( self, options.target:GetPos(),  function( area, fromArea, ladder, elevator, length )
 		if ( !IsValid( fromArea ) ) then
-			--first area in path, no cost
+			-- First area in path, no cost
 			return 0
 		else
 			if ( !self.loco:IsAreaTraversable( area ) ) then
-				--our locomotor says we can't move here
+				-- Our locomotor says we can't move here
 				return -1
 			end
-			--Prevent movement through either locked navareas or areas with closed doors
+			-- Prevent movement through either locked navareas or areas with closed doors
 			if (nzNav.Locks[area:GetID()]) then
-				--print("Has area")
 				if nzNav.Locks[area:GetID()].link then
-					--print("Area has door link")
-					if !nzDoors.OpenedLinks[nzNav.Locks[area:GetID()].link] then
-						--print("Door link is not opened")
+					if !nzDoors:IsLinkOpened( nzNav.Locks[area:GetID()].link ) then
 						return -1
 					end
 				elseif nzNav.Locks[area:GetID()].locked then
-					--print("Area is locked")
 				return -1 end
 			end
-			--compute distance traveled along path so far
+			-- Compute distance traveled along path so far
 			local dist = 0
 			--[[if ( IsValid( ladder ) ) then
 				dist = ladder:GetLength()
@@ -1035,11 +1047,12 @@ function ENT:Flames( state )
 	end
 end
 
-function ENT:Explode( dmg, suicide)
+function ENT:Explode(dmg, suicide)
 
 	suicide = suicide or true
 
 	local ex = ents.Create("env_explosion")
+	if !IsValid(ex) then return end
 	ex:SetPos(self:GetPos())
 	ex:SetKeyValue( "iMagnitude", tostring( dmg ) )
 	ex:SetOwner(self)
@@ -1052,9 +1065,17 @@ function ENT:Explode( dmg, suicide)
 
 end
 
-function ENT:Kill()
-	self:Fire("Kill",0,0)
-	self:OnKilled(DamageInfo())
+function ENT:Kill(dmginfo, noprogress, noragdoll)
+	local dmg = dmginfo or DamageInfo()
+	if noragdoll then
+		self:Fire("Kill",0,0)
+	else
+		self:BecomeRagdoll(dmg)
+	end
+	if !noprogress then
+		nzEnemies:OnEnemyKilled(self, dmg:GetAttacker(), dmg, 0)
+	end
+	self:OnKilled(dmg)
 	--self:TakeDamage( 10000, self, self )
 end
 
@@ -1339,4 +1360,12 @@ end
 
 function ENT:IsTimedOut()
 	return self:GetTimedOut()
+end
+
+function ENT:SetInvulnerable(bool)
+	self.Invulnerable = bool
+end
+
+function ENT:IsInvulnerable()
+	return self.Invulnerable
 end

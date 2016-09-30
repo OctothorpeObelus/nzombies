@@ -57,7 +57,16 @@ function ENT:Initialize()
 		timer.Simple(25, function() if IsValid(self) then self.Box:Close() self:Remove() end end)
 	else
 		local wep = weapons.Get(self:GetWepClass())
-		if wep.DrawWorldModel then self.WorldModelFunc = wep.DrawWorldModel end
+		if !IsValid(wep) then
+			timer.Simple(1, function()
+				if IsValid(self) then
+					wep = weapons.Get(self:GetWepClass())
+					if IsValid(wep) and wep.DrawWorldModel then self.WorldModelFunc = wep.DrawWorldModel end
+				end
+			end)
+		elseif wep.DrawWorldModel then 
+			self.WorldModelFunc = wep.DrawWorldModel
+		end
 	end
 end
 
@@ -70,7 +79,7 @@ function ENT:Use( activator, caller )
 			self.Box:Close()
 			self:Remove()
 		else
-			if self.Buyer:IsValid() then
+			if IsValid(self.Buyer) then
 				activator:PrintMessage( HUD_PRINTTALK, "This is " .. self.Buyer:Nick() .. "'s gun. You cannot take it." )
 			end
 		end

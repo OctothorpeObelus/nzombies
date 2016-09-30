@@ -6,10 +6,10 @@ function nzMapping:ZedSpawn(pos, link, ply)
 	pos.z = pos.z - ent:OBBMaxs().z
 	ent:SetPos( pos )
 	ent:Spawn()
-	ent.link = tonumber(link)
-	//For the link displayer
+	-- For the link displayer
 	if link != nil then
-		ent:SetLink(link)
+		ent:SetLink(tostring(link))
+		ent.link = tostring(link)
 	end
 
 	if ply then
@@ -27,10 +27,10 @@ function nzMapping:ZedSpecialSpawn(pos, link, ply)
 	pos.z = pos.z - ent:OBBMaxs().z
 	ent:SetPos( pos )
 	ent:Spawn()
-	ent.link = tonumber(link)
-	//For the link displayer
+	-- For the link displayer
 	if link != nil then
-		ent:SetLink(link)
+		ent:SetLink(tostring(link))
+		ent.link = tostring(link)
 	end
 
 	if ply then
@@ -320,6 +320,7 @@ function nzMapping:CleanUpMap()
 		"edit_fog_special",
 		"edit_sky",
 		"edit_sun",
+		"edit_dynlight",
 		"nz_prop_effect",
 		"nz_prop_effect_attachment",
 		"nz_fire_effect",
@@ -327,6 +328,7 @@ function nzMapping:CleanUpMap()
 		"power_box",
 		"invis_wall",
 		"wunderfizz_machine",
+		"invis_damage_wall",
 	})
 
 	-- Gotta reset the doors and other entites' values!
@@ -360,13 +362,14 @@ function nzMapping:CleanUpMap()
 	end
 	
 	-- Remove gamemode-specific entities if their gamemode hasn't be enabled in the Map Settings menu
-	for k,v in pairs(ents.GetAll()) do
+	--[[for k,v in pairs(ents.GetAll()) do
 		if v.NZGamemodeExtension then
 			if !nzMapping.Settings.gamemodeentities[v.NZGamemodeExtension] then
 				v:Remove()
 			end
 		end
-	end
+	end]]
+	-- No longer done here, done in the entities' Initialize function
 end
 
 function nzMapping:SpawnEntity(pos, ang, ent, ply)
@@ -403,6 +406,35 @@ function nzMapping:CreateInvisibleWall(vec1, vec2, ply)
 
 	if ply then
 		undo.Create( "Invis Wall" )
+			undo.SetPlayer( ply )
+			undo.AddEntity( wall )
+		undo.Finish( "Effect (" .. tostring( model ) .. ")" )
+	end
+	return wall
+end
+
+function nzMapping:CreateInvisibleDamageWall(vec1, vec2, ply, dmg, delay, radiation, poison, tesla)
+	local wall = ents.Create( "invis_damage_wall" )
+	wall:SetPos( vec1 )
+	wall:SetMaxBound(vec2)
+	wall:Spawn()
+	wall:PhysicsInitBox( Vector(0,0,0), vec2 )
+	wall:SetNotSolid(true)
+	wall:SetTrigger(true)
+	wall:SetDamage(dmg)
+	wall:SetDelay(delay)
+	
+	wall:SetRadiation(radiation)
+	wall:SetPoison(poison)
+	wall:SetTesla(tesla)
+
+	local phys = wall:GetPhysicsObject()
+	if IsValid(phys) then
+		phys:EnableMotion(false)
+	end
+
+	if ply then
+		undo.Create( "Damage Wall" )
 			undo.SetPlayer( ply )
 			undo.AddEntity( wall )
 		undo.Finish( "Effect (" .. tostring( model ) .. ")" )

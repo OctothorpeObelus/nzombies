@@ -1,41 +1,110 @@
+AddCSLuaFile()
 
---EFFECT.MatCenter = Material( "lightning.png", "unlitgeneric smooth" )
 EFFECT.MatEdge = Material( "effects/tool_tracer" )
 EFFECT.MatCenter = Material( "sprites/physbeama" )
 EFFECT.MatGlow1 = Material( "sprites/physg_glow1" )
 EFFECT.MatGlow2 = Material( "sprites/physg_glow2" )
 EFFECT.MatGlowCenter = Material( "sprites/glow04_noz" )
 
---[[---------------------------------------------------------
-   Init( data table )
------------------------------------------------------------]]
+EFFECT.Mat = {
+	--Model("gmod/scope-refract"),
+	Model("particle/particle_sphere"),
+	Model("particle/particle_smokegrenade"),
+	Model("particle/particle_noisesphere")
+}
+
+local mid = Model("models/effects/comball_glow1")
+
+local colors = {
+	{150, 100, 200},
+	{160, 100, 150},
+	{150, 60, 150},
+	{170, 80, 150},
+	{120, 60, 200},
+	{50, 20, 200}
+}
+
 function EFFECT:Init( data )
 
-	self.Size = data:GetScale() or 1
+	self.Size = 5
 	self.MaxArcs = 2
-	self.Parent = data:GetEntity()
-	self.Frequency = data:GetMagnitude()/10 or 0.01
-	self.Pos = self.Parent:WorldSpaceCenter()
-	self.Parent.LightningAura = true -- Set this to false to kill the effect
+	self.Frequency = 0.05
 
 	self.Alpha = 255
 	self.Life = 0
+	self.KillTime = CurTime() + 1.5
 	self.NextArc = 0
 	self.Arcs = {}
 	self.Queue = 1
 
-	self:SetRenderBoundsWS( self.Pos, self.Pos, Vector(100,100,100) )
+	local pos = data:GetOrigin()
+	self.Pos = pos
+	local duration = data:GetMagnitude()
+	
+	sound.Play("ambient/machines/teleport4.wav", self.Pos, 100, 100, 1)
+	
+	local em = ParticleEmitter( pos )
+		for i = 0, 20 do
+			local p = em:Add( self.Mat[math.random(#self.Mat)] , pos )
+			if p then
+				local col = math.random(1, #colors)
+		        p:SetColor(colors[col][1], colors[col][2], colors[col][3])
+		        p:SetStartAlpha(255)
+		        p:SetEndAlpha(150)
+				local vel = VectorRand() * math.Rand(150,200)
+				vel.z = math.random(-10, 10)
+				
+				p:SetPos(pos + vel)
+		        p:SetVelocity(vel * -10)
+		        p:SetLifeTime(0)
 
+		        p:SetDieTime(math.Rand(duration + 0.2, duration + 0.5))
+
+		        p:SetStartSize(math.random(30, 40))
+		        p:SetEndSize(math.random(10, 20))
+		        p:SetRoll(math.random(-180, 180))
+		        p:SetRollDelta(math.Rand(-0.1, 0.1))
+		        p:SetAirResistance(350)
+
+		        p:SetCollide(true)
+		        p:SetBounce(0.4)
+
+		        p:SetLighting(false)
+			end
+		end
+		local p = em:Add( mid, pos )
+		p:SetStartAlpha(255)
+		p:SetEndAlpha(150)
+	
+		p:SetPos(pos)
+		p:SetLifeTime(0)
+
+		p:SetDieTime(1.5)
+
+		p:SetStartSize(0)
+		p:SetEndSize(400)
+		timer.Simple(0.2, function()
+			p:SetStartSize(60)
+			p:SetEndSize(60)
+		end)
+		timer.Simple(1.3, function()
+			p:SetStartSize(400)
+			p:SetEndSize(0)
+		end)
+		p:SetRoll(math.random(-180, 180))
+		p:SetRollDelta(math.Rand(-0.1, 0.1))
+		p:SetAirResistance(300)
+
+		p:SetCollide(false)
+
+		p:SetLighting(false)
+	em:Finish()
 end
 
 --[[---------------------------------------------------------
    THINK
 -----------------------------------------------------------]]
 function EFFECT:Think()
-
-	if IsValid(self.Parent) then
-		self.Pos = self.Parent:WorldSpaceCenter()
-	end
 
 	self.Life = self.Life + FrameTime()
 	--self.Alpha = 255 * ( 1 - self.Life )
@@ -59,7 +128,7 @@ function EFFECT:Think()
 		end
 	end
 
-	return IsValid(self.Parent) and (type(self.Parent.LightningAura) == "number" and CurTime() < self.Parent.LightningAura or self.Parent.LightningAura)
+	return CurTime() < self.KillTime
 end
 
 function EFFECT:GenerateArc(startPos, endPos, branchChance, detail)
@@ -134,10 +203,6 @@ function EFFECT:Render()
 	
 	render.SetMaterial( self.MatGlowCenter )
 	render.DrawSprite( self.Pos, math.random(15,40)*self.Size, math.random(15,40)*self.Size, Color(math.random(50,150),math.random(100,200),255,math.random(200,250)))
-	
-	if !self.Parent:GetNoDraw() then
-		self.Parent:DrawModel() -- Always draw the model in front
-	end
 end
 
 function EFFECT:RenderArc(arc, edge)

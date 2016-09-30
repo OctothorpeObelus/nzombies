@@ -104,6 +104,7 @@ function ENT:StatsInitialize()
 	if SERVER then
 		self:SetRunSpeed(250)
 		self:SetHealth( 100 )
+		self:SetNoDraw(true)
 	end
 	self:SetCollisionBounds(Vector(-14,-14, 0), Vector(14, 14, 48))
 	self:SetSolid(SOLID_BBOX)
@@ -113,7 +114,7 @@ end
 
 function ENT:OnSpawn()
 
-	self:SetNoDraw(true) -- Start off invisible while in the prespawn effect
+	--self:SetNoDraw(true) -- Start off invisible while in the prespawn effect
 	self:SetCollisionGroup(COLLISION_GROUP_DEBRIS) -- Don't collide in this state
 	self:Stop() -- Also don't do anything
 
@@ -123,6 +124,7 @@ function ENT:OnSpawn()
 	effectData:SetEntity(nil)
 	util.Effect("lightning_prespawn", effectData)
 	self:SetNoDraw(true)
+	self:SetInvulnerable(true)
 
 	timer.Simple(1.4, function()
 		if IsValid(self) then
@@ -141,6 +143,7 @@ function ENT:OnSpawn()
 			self:SetStop(false)
 
 			self:SetTarget(self:GetPriorityTarget())
+			self:SetInvulnerable(nil)
 		end
 	end)
 

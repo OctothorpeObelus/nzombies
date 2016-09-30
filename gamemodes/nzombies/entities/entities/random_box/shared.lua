@@ -20,13 +20,11 @@ function ENT:Initialize()
 	self:PhysicsInit( SOLID_VPHYSICS )
 	self:SetMoveType( MOVETYPE_NONE )
 	self:SetSolid( SOLID_VPHYSICS )
-	print(self:GetMoveType())
 
 	--[[local phys = self:GetPhysicsObject()
 	if (phys:IsValid()) then
 		phys:Wake()
 	end]]
-	print(self:GetMoveType())
 
 	self:DrawShadow( false )
 	self:AddEffects( EF_ITEM_BLINK )
@@ -82,12 +80,12 @@ function ENT:SpawnWeapon(activator, class)
 	local ang = self:GetAngles()
 	wep:SetAngles( ang )
 	wep:SetPos( self:GetPos() + ang:Up()*10 )
+	wep:SetWepClass(class)
 	wep:Spawn()
 	wep.Buyer = activator
 	--wep:SetParent( self )
 	wep.Box = self
 	--wep:SetAngles( self:GetAngles() )
-	wep:SetWepClass(class)
 	self:EmitSound("nz/randombox/random_box_jingle.wav")
 
 	return wep
@@ -95,6 +93,11 @@ end
 
 function ENT:Think()
 	self:NextThink(CurTime())
+	
+	if self.MarkedForRemoval and !self:GetOpen() then
+		self:Remove()
+	end
+	
 	return true
 end
 
@@ -166,21 +169,22 @@ function ENT:MoveAway()
 end
 
 function ENT:MoveToNewSpot(oldspot)
-	//Calls mapping function excluding the current spot
+	-- Calls mapping function excluding the current spot
 	nzRandomBox.Spawn(oldspot)
 end
 
 function ENT:MarkForRemoval()
-	if !self:GetOpen() then
+	self.MarkedForRemoval = true
+	--[[if !self:GetOpen() then
 		self:Remove()
 	else
-		hook.Add("Tick", "RemoveBox"..self:EntIndex(), function()
-			if !self:GetOpen() then
-				hook.Remove("Tick", "RemoveBox"..self:EntIndex())
+		hook.Add("Think", "RemoveBox"..self:EntIndex(), function()
+			if !IsValid(self) or !self:GetOpen() then
+				hook.Remove("Think", "RemoveBox"..self:EntIndex())
 				self:Remove()
 			end
 		end)
-	end
+	end]]
 end
 
 if CLIENT then

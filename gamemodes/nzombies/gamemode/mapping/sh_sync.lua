@@ -11,9 +11,6 @@ if SERVER then
 		if tbl.startpoints then
 			nzMapping.Settings.startpoints = tonumber(tbl.startpoints) and tbl.startpoints or 500
 		end
-		if tbl.numweps then
-			nzMapping.Settings.numweps = tonumber(tbl.numweps) and tbl.numweps or 2
-		end
 		if tbl.eeurl then
 			nzMapping.Settings.eeurl = tbl.eeurl and tbl.eeurl or nil
 		end
@@ -31,6 +28,12 @@ if SERVER then
 		end
 		if tbl.gamemodeentities then
 			nzMapping.Settings.gamemodeentities = tbl.gamemodeentities or nil
+		end
+		if tbl.specialroundtype then
+			nzMapping.Settings.specialroundtype = tbl.specialroundtype or "Hellhounds"
+		end
+		if tbl.bosstype then
+			nzMapping.Settings.bosstype = tbl.bosstype or "Panzer"
 		end
 
 		for k,v in pairs(player.GetAll()) do
@@ -66,12 +69,15 @@ if CLIENT then
 		
 		-- Precache all random box weapons in the list
 		if nzMapping.Settings.rboxweps then
+			local model = ClientsideModel("models/hoff/props/teddy_bear/teddy_bear.mdl")
 			for k,v in pairs(nzMapping.Settings.rboxweps) do
 				local wep = weapons.Get(v)
 				if wep and (wep.WM or wep.WorldModel) then
 					util.PrecacheModel(wep.WM or wep.WorldModel)
+					model:SetModel(wep.WM or wep.WorldModel)
 				end
 			end
+			model:Remove()
 		end
 	end
 	net.Receive( "nzMapping.SyncSettings", receiveMapData )

@@ -54,10 +54,11 @@ function plyMeta:UnReady()
 end
 
 function plyMeta:DropIn()
-	if GetConVar("nz_round_dropins_allow"):GetBool() == true and !self:IsPlaying() then
+	if GetConVar("nz_round_dropins_allow"):GetBool() and !self:IsPlaying() then
 		self:SetReady( true )
 		self:SetPlaying( true )
 		self:SetTeam( TEAM_PLAYERS )
+		self:RevivePlayer()
 		hook.Call( "OnPlayerDropIn", nzRound, self )
 		if nzRound:GetNumber() == 1 and nzRound:InState(ROUND_PREP) then
 			PrintMessage( HUD_PRINTTALK, self:Nick() .. " is dropping in!" )
@@ -102,6 +103,39 @@ function plyMeta:GiveCreativeMode()
 
 end
 
-function plyMeta:IsInCreative()
-	return player_manager.GetPlayerClass( self ) == "player_create"
+function plyMeta:RemoveCreativeMode()
+
+	player_manager.SetPlayerClass( self, "player_ingame" ) -- Defaults to ingame
+	self:SetSpectator()
+
+end
+
+function plyMeta:ToggleCreativeMode()
+	if self:IsInCreative() then
+		self:RemoveCreativeMode()
+		
+		if nzRound:InState(ROUND_CREATE) then
+			local creative = false
+			for k,v in pairs(player.GetAll()) do
+				if v:IsInCreative() then
+					creative = true
+					break
+				end
+			end
+			
+			-- If there are no other players left in creative, return to survival
+			if !creative then
+				nzRound:Create(false)
+			end
+		end
+	else
+		if !nzRound:InState(ROUND_CREATE) then
+			nzRound:Create(true)
+		end
+		if nzRound:InState(ROUND_CREATE) then -- Only if we already are or we successfully switched to it
+			self:GiveCreativeMode()
+		else
+			self:ChatPrint("Can't go in Creative right now.")
+		end
+	end
 end
